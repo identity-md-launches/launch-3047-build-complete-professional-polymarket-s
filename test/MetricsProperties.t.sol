@@ -85,7 +85,8 @@ contract MetricsPropertiesTest is Test {
         assertGt(starts, now_);
         assertEq((starts - genesis) % 600, 0);
         assertEq(ends - starts, duration);
-        uint256 candidate = daily ? (uint256(now_) / 1 days + 1) * 1 days : uint256(now_) + 1;
+        // Non-daily windows leave one full duration of betting time before the first round.
+        uint256 candidate = daily ? (uint256(now_) / 1 days + 1) * 1 days : uint256(now_) + duration;
         assertGe(starts, candidate);
         assertLt(starts, candidate + 600);
     }

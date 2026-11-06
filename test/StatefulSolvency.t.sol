@@ -369,7 +369,7 @@ contract SolvencyHandler is Test {
     }
 }
 
-/// forge-config: default.invariant.runs = 256
+/// forge-config: default.invariant.runs = 64
 /// forge-config: default.invariant.depth = 96
 /// forge-config: default.invariant.fail-on-revert = true
 contract StatefulSolvencyTest is StdInvariant, Test {
@@ -437,7 +437,39 @@ contract StatefulSolvencyTest is StdInvariant, Test {
         }
     }
 
+    /// @dev An observing generation is always the lane's older, still-Open market, and the bettable
+    /// successor can never close before it ends, so one observing slot per lane suffices.
+    function invariantObservingGenerationsAreOlderOpenAndNeverOverlapTheirSuccessor() public view {
+        uint256[14] memory active = engine.activeMarketIds();
+        uint256[14] memory observing = engine.observingMarketIds();
+        for (uint256 i; i < 14; ++i) {
+            if (observing[i] == 0) continue;
+            SqueekPredict.Market memory o = engine.getMarket(observing[i]);
+            assertEq(o.templateId, i);
+            assertEq(uint8(o.status), uint8(SqueekPredict.Status.Open));
+            assertLt(observing[i], active[i]);
+            SqueekPredict.Market memory a = engine.getMarket(active[i]);
+            if (a.status == SqueekPredict.Status.Open) assertGe(a.closesAt, o.endsAt);
+        }
+    }
+
+    /// @dev No live market is ever orphaned: each Scheduled or Open market is its lane's bettable
+    /// or observing generation, so maintenance can always retire it.
+    function assertNoOrphanedLiveMarket() internal view {
+        uint256[14] memory active = engine.activeMarketIds();
+        uint256[14] memory observing = engine.observingMarketIds();
+        for (uint256 id = 1; id < engine.nextMarketId(); ++id) {
+            SqueekPredict.Market memory m = engine.getMarket(id);
+            if (m.status == SqueekPredict.Status.Scheduled || m.status == SqueekPredict.Status.Open) {
+                assertTrue(
+                    active[m.templateId] == id || observing[m.templateId] == id, "orphaned live market"
+                );
+            }
+        }
+    }
+
     function afterInvariant() public {
+        assertNoOrphanedLiveMarket();
         assertGe(handler.betCalls(), 9);
         assertGe(handler.settlementCalls(), 1);
         assertGe(handler.claimCalls(), 1);

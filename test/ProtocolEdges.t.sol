@@ -171,7 +171,10 @@ contract ProtocolEdgesTest is IndependentSetup {
         vm.warp(start);
         vm.expectRevert(SqueekPredict.BettingClosed.selector);
         engine.bet{value: 1 ether}(5, 1);
-        SqueekPredict.Market memory m = engine.getMarket(3);
+        // Every certified-history lane now closes at its window start; external lanes at half window.
+        SqueekPredict.Market memory m = engine.getMarket(4);
+        assertEq(m.closesAt, m.startsAt);
+        m = engine.getMarket(6);
         assertEq(m.closesAt - m.startsAt, (m.endsAt - m.startsAt) / 2);
         assertAccounting(0);
     }

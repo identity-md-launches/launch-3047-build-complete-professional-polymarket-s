@@ -37,7 +37,8 @@ contract ResolutionMatrixTest is IndependentSetup {
             core.add(afterRound, 1, 900_000_000);
             core.add(throughRound, 10, uint96(expected * 1e9));
         } else if (m.templateId == 3) {
-            uint64 count = over ? 4 : 3;
+            // Consecutive active rounds whose total length lands at the strike or one round above it.
+            uint64 count = uint64(m.strike / 600) + (over ? 1 : 0);
             for (uint64 i = 1; i <= count; ++i) {
                 core.add(afterRound + i, 1, 1e9);
             }
@@ -47,10 +48,10 @@ contract ResolutionMatrixTest is IndependentSetup {
             core.add(afterRound + 109, over ? 9 : 10, 1e9); // 18:00 UTC.
             expected = over ? 1 : 0;
         } else if (m.templateId == 10) {
-            expected = over ? 5001 : 5000;
+            expected = m.strike + (over ? 1 : 0);
             core.add(afterRound + 1, uint64(expected), 1e9);
         } else {
-            uint64 count = over ? 25 : 24;
+            uint64 count = uint64(m.strike) + (over ? 1 : 0);
             for (uint64 i; i < count; ++i) {
                 core.add(afterRound + i * 2 + 1, 1, 1e9);
             }

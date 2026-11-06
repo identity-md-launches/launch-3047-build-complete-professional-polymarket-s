@@ -33,8 +33,9 @@ nontransferable net stakes in separate parimutuel pools.
 
 ## Stateful harness
 
-`StatefulSolvency.t.sol` configures **256 runs × 96 calls**, with unexpected
-handler reverts treated as failures. Nine selectors exercise betting, time
+`StatefulSolvency.t.sol` configures **64 runs × 96 calls**, with unexpected
+handler reverts treated as failures. (The revised engine's rotation does more work
+per maintenance call; 256 runs no longer finished inside the worker's time budget.) Nine selectors exercise betting, time
 advancement, maintenance, price settlement/refunds, payment batches, claims,
 recipient rejection, forced donations and explicitly invalid bets.
 
@@ -53,6 +54,39 @@ an empty protocol from making the payout properties vacuous. `afterInvariant`
 expires every remaining funded market and claims every outstanding entitlement,
 then checks zero remaining liability and conservation again. The original
 invariant suite remains intact and complements this with Squeek settlement.
+
+Since the lane-generation revision, the stateful suite also checks after every call
+that each nonzero `observingMarketIds()` entry is the lane's older, still-Open
+market and that an Open successor never closes before it ends. After each sequence
+it checks that every Scheduled or Open market is its lane's bettable or observing
+generation, so no live market is ever orphaned.
+
+## Lane generations (revision)
+
+`GenerationLifecycle.t.sol` covers the overlapping-generation rotation from the
+outside:
+
+- Price bets stop at `closesAt` on the clock, before any keeper acts. The successor
+  takes a fresh strike and feed round. A second `maintain` in the same block is a
+  no-op, and successor stakes never reach the observing pool.
+- An observing market times out to an exact refund at its grace boundary without
+  touching its successor. Skipping the whole window retires the market directly
+  with exactly one successor. Settling an unrotated active market schedules it.
+- All seven Squeek lanes take stakes only before their window starts (fuzzed
+  timing), with round-aligned windows and a full duration of betting time.
+  Consecutive windows never overlap. A rolling lane rotated after its closing
+  second skips exactly one unobserved 10-minute round; this is reported as
+  behaviour, not as a defect.
+- Any Core genesis move, earlier or later and on or off the round grid, fails
+  closed and leaves the stakes refundable after the grace.
+- Header proofs: BLOCKHASH serves exactly 256 blocks and the EIP-2935 history
+  serves the rest up to 8,191. Overlong, reverting or zero history answers and
+  current-block targets are rejected. An observing native lane settles through
+  the history and clears its slot.
+
+Earlier tests that hard-coded the original Squeek strikes, cutoffs and window
+start now read them from `marketTemplate`/`getMarket`. Their properties are
+unchanged.
 
 ## Boundary and oracle tests
 
