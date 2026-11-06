@@ -2,6 +2,9 @@ import { settlementAction } from '../web/lib/proofs.js';
 
 const asMarket = (m, id) => ({ ...(typeof m.toObject === 'function' ? m.toObject() : m), id: BigInt(id) });
 
+/** Payment batch sizes tried in turn when the larger one does not fit the per-transaction gas budget. */
+export const PAY_BATCHES = [40, 20, 10, 5];
+
 /** One bounded cycle. The caller supplies a sender; the library never loads keys or the environment. */
 export async function runCycle({ contract, provider, send, checkpoint, maxTransactions = 12, scanBatch = 32, log = () => {} }) {
   if (!Number.isInteger(maxTransactions) || maxTransactions < 1 || maxTransactions > 100) throw new Error('Invalid transaction budget.');
@@ -11,20 +14,30 @@ export async function runCycle({ contract, provider, send, checkpoint, maxTransa
   let budget = maxTransactions;
   let completed = 0;
   const active = Array.from(await contract.activeMarketIds(), BigInt);
-  const activeMarkets = Array.from(await contract.getMarkets(active), (m,i) => asMarket(m, active[i]));
-  let maintain = activeMarkets.some(m => Number(m.status) === 1 && Number(m.endsAt) <= now);
+  const observing = typeof contract.observingMarketIds === 'function' ? Array.from(await contract.observingMarketIds(), BigInt).filter(id => id !== 0n) : [];
+  const activeMarkets = Array.from(await contract.getMarkets(active), (m, i) => asMarket(m, active[i]));
+  const observingMarkets = observing.length ? Array.from(await contract.getMarkets(observing), (m, i) => asMarket(m, observing[i])) : [];
+  // Upkeep is due when a bettable market has closed or ended, an observing market has ended, or a lane can open.
+  let maintain = activeMarkets.some(m => Number(m.status) === 1 && Number(m.closesAt) <= now)
+    || observingMarkets.some(m => Number(m.status) === 1 && Number(m.endsAt) <= now);
   if (!maintain) {
     for (const m of activeMarkets) {
       if (Number(m.status) !== 0) continue;
       try { await contract.open.staticCall(m.id); maintain = true; break; } catch {}
     }
   }
+  // A transaction the sender refused to submit (gas budget) is not charged against the cycle budget.
   const dispatch = async action => {
     if (budget === 0) return false;
     --budget;
-    const changed = await send(action);
-    if (changed) ++completed;
-    return changed;
+    try {
+      const changed = await send(action);
+      if (changed) ++completed;
+      return changed;
+    } catch (e) {
+      if (e?.code === 'NOT_SENT') ++budget;
+      throw e;
+    }
   };
   if (maintain) {
     try { await dispatch({ method: 'maintain', args: [] }); } catch (e) { log(`upkeep: ${e.shortMessage || e.message}`); }
@@ -32,7 +45,7 @@ export async function runCycle({ contract, provider, send, checkpoint, maxTransa
   const next = BigInt(await contract.nextMarketId());
   let cursor = BigInt(checkpoint.nextScan ?? '1');
   if (cursor < 1n || cursor > next) cursor = 1n;
-  const ids = new Set([...active.map(String), ...(checkpoint.pending || [])]);
+  const ids = new Set([...active.map(String), ...observing.map(String), ...(checkpoint.pending || [])]);
   for (let i = 0; i < scanBatch && cursor < next; ++i, ++cursor) ids.add(String(cursor));
   const pending = new Set();
   // Active deadlines first, then oldest retained jobs. Settlement never depends on local state.
@@ -57,10 +70,17 @@ export async function runCycle({ contract, provider, send, checkpoint, maxTransa
       if (BigInt(market.paymentCursor) < count) {
         pending.add(textId);
         if (budget) {
-          try { if (await dispatch({ method: 'pay', args: [id, 40] })) {
-            market = asMarket(await contract.getMarket(id), id);
-            if (BigInt(market.paymentCursor) >= count) pending.delete(textId);
-          } } catch (e) { log(`payments ${id}: ${e.shortMessage || e.message}`); }
+          try {
+            let changed = false;
+            for (const size of PAY_BATCHES) {
+              try { changed = await dispatch({ method: 'pay', args: [id, size] }); break; }
+              catch (e) { if (e?.code !== 'NOT_SENT' || size === PAY_BATCHES.at(-1)) throw e; }
+            }
+            if (changed) {
+              market = asMarket(await contract.getMarket(id), id);
+              if (BigInt(market.paymentCursor) >= count) pending.delete(textId);
+            }
+          } catch (e) { log(`payments ${id}: ${e.shortMessage || e.message}`); }
         }
       } else pending.delete(textId);
     }

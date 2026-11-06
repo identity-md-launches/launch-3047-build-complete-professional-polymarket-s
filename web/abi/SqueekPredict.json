@@ -113,6 +113,19 @@
   },
   {
     "type": "function",
+    "name": "NATIVE_RESOLUTION_GRACE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "PUSH_GAS",
     "inputs": [],
     "outputs": [
@@ -635,6 +648,19 @@
   },
   {
     "type": "function",
+    "name": "observingMarketIds",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256[14]",
+        "internalType": "uint256[14]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "odds",
     "inputs": [
       {
@@ -729,6 +755,59 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewOpen",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "startsAt",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "closesAt",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "endsAt",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "strike",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "resolutionGrace",
+    "inputs": [
+      {
+        "name": "slot",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "pure"
   },
   {
     "type": "function",
@@ -938,6 +1017,25 @@
   },
   {
     "type": "event",
+    "name": "MarketClosed",
+    "inputs": [
+      {
+        "name": "marketId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "replacementId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "MarketOpened",
     "inputs": [
       {
@@ -1082,6 +1180,11 @@
   {
     "type": "error",
     "name": "BettingClosed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CoreReconfigured",
     "inputs": []
   },
   {

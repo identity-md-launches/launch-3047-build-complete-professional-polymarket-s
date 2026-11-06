@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseEther } from '../web/vendor/ethers-6.15.0.min.js';
-import { quote, poolOdds, entitlement, canBet, previewMarkets, question, escapeHtml } from '../web/lib/markets.js';
+import { quote, poolOdds, entitlement, canBet, previewMarkets, question, escapeHtml, gasAmount, grace, rules } from '../web/lib/markets.js';
 
 const market = { templateId: 5, strike: 2000_00000000n, noPool: parseEther('2.97'), yesPool: parseEther('0.99'), status: 1, closesAt: 200n };
 
@@ -36,6 +36,21 @@ test('preview has fourteen named templates, no invented deployment IDs or pools'
 test('scheduled on-chain slots show template thresholds while their stored strike is unset', () => {
   for (const m of previewMarkets()) assert.equal(question({...m, id: BigInt(m.templateId + 1), strike: 0n}), question(m));
   assert.match(question({templateId: 0, status: 0n, strike: 0n}), /100 Squeek blocks/);
-  assert.match(question({templateId: 3, status: 0n, strike: 0n}), /30 minutes/);
+  assert.match(question({templateId: 1, status: 0n, strike: 0n}), /950 Squeek blocks/);
+  assert.match(question({templateId: 3, status: 0n, strike: 0n}), /120 minutes/);
   assert.match(question({templateId: 8, status: 0n, strike: 0n}), /opening level/);
+});
+test('base-fee strikes are shown exactly, in wei when below a thousandth of a gwei', () => {
+  for (const [strike, text] of [[7n, '7 wei'], [17n, '17 wei'], [499n, '499 wei'], [999_999n, '999,999 wei'], [1_000_000n, '0.001 gwei'], [10_000_000_000n, '10 gwei']]) {
+    assert.equal(gasAmount(strike), text);
+    assert.equal(question({ templateId: 8, status: 1, strike }), `Sepolia base fee above ${text} in 24h?`);
+  }
+  assert.doesNotMatch(question({ templateId: 8, status: 1, strike: 17n }), /0 gwei/);
+});
+test('grace periods and cutoff rules follow the market kind', () => {
+  assert.equal(grace({ templateId: 8 }), 86400n); assert.equal(grace({ templateId: 9 }), 86400n);
+  assert.equal(grace({ templateId: 5 }), 172800n); assert.equal(grace({ templateId: 0 }), 172800n);
+  assert.match(rules({ templateId: 9 }), /after 24 hours/); assert.match(rules({ templateId: 0 }), /after 48 hours/);
+  assert.match(rules({ templateId: 0 }), /closes when the observation window starts/);
+  assert.match(rules({ templateId: 5 }), /halfway through/);
 });

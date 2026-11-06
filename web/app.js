@@ -1,6 +1,6 @@
 import { BrowserProvider, Contract, JsonRpcProvider, isAddress, keccak256, getAddress } from './vendor/ethers-6.15.0.min.js';
 import { CHAIN_ID, CORE, EXPLORER, STATUS, TEMPLATES, template, question, labels, poolOdds, ether,
-  shortAddress, timeLeft, canBet, quote, entitlement, rules, previewMarkets, escapeHtml as esc } from './lib/markets.js';
+  shortAddress, timeLeft, canBet, quote, entitlement, rules, previewMarkets, grace, escapeHtml as esc } from './lib/markets.js';
 import { settlementAction } from './lib/proofs.js';
 import { icon } from './lib/icons.js';
 
@@ -67,7 +67,7 @@ function renderMarkets() {
 
 function openRules(m) {
   $('rules-title').textContent = question(m); $('rules-body').textContent = rules(m);
-  $('rules-times').innerHTML = Number(m.startsAt) ? [['Observation starts', m.startsAt], ['Betting closes', m.closesAt], ['Observation ends', m.endsAt], ['Refund deadline', BigInt(m.endsAt) + 172800n]]
+  $('rules-times').innerHTML = Number(m.startsAt) ? [['Betting closes', m.closesAt], ['Observation starts', m.startsAt], ['Observation ends', m.endsAt], ['Refund deadline', BigInt(m.endsAt) + grace(m)]]
     .map(([title,t]) => `<div><dt>${title}</dt><dd>${date(t)}</dd></div>`).join('') : '<div><dt>UTC window</dt><dd>Assigned when this market opens</dd></div>';
   $('rules-dialog').showModal();
 }
@@ -250,7 +250,7 @@ function renderPositions() {
     stake += net; claim += available;
     let action = p.paid ? '<span class="action-label">✓ Payout received</span>'
       : available > 0n ? `<button class="primary small" data-claim="${m.id}" ${state.busy ? 'disabled' : ''}>Claim ${ether(available)} ETH</button>`
-      : Number(m.status) < 3 && Number(m.endsAt) <= now() ? `<button class="secondary" data-settle="${m.id}" ${state.busy ? 'disabled' : ''}>${now() >= Number(m.endsAt) + 172800 ? 'Refund' : 'Settle'}</button>`
+      : Number(m.status) < 3 && Number(m.endsAt) <= now() ? `<button class="secondary" data-settle="${m.id}" ${state.busy ? 'disabled' : ''}>${now() >= Number(m.endsAt) + Number(grace(m)) ? 'Refund' : 'Settle'}</button>`
       : Number(m.status) === 3 ? '<span class="muted mini">No winning stake</span>' : '<span class="muted mini">Observing</span>';
     const sideText = [p.yesStake > 0n ? `${sides[1]} · ${ether(p.yesStake)} ETH` : '', p.noStake > 0n ? `${sides[0]} · ${ether(p.noStake)} ETH` : ''].filter(Boolean).join(' / ');
     return `<article class="position-row"><div><span class="tag">#${m.id} · ${STATUS[Number(m.status)]}</span><h3>${esc(question(m))}</h3><p>${esc(sideText)}</p></div><div class="position-cell"><span>Net stake</span>${ether(net)} ETH</div><div class="position-cell"><span>${Number(m.status) >= 3 ? 'Outcome' : 'Observation ends'}</span>${Number(m.status) === 4 ? 'Net refund' : Number(m.status) === 3 ? sides[Number(m.winner)] : date(m.endsAt)}</div>${action}</article>`;
@@ -285,7 +285,7 @@ async function sourceHealth() {
     state.squeekHealthy = !s.paused && now() - Number(certifiedAt) <= 21600 && Number(certifiedAt) <= now();
     const delayed = now() - Number(certifiedAt) > 7200 || s.paused;
     $('source-notice').hidden = !delayed;
-    $('source-notice').textContent = `Squeek reporting ${s.paused ? 'is paused' : 'is delayed'} · Certified through ${date(certifiedAt)}. Hamster markets need new certification to settle; missing evidence after 48 hours triggers a net refund. Crypto and network markets use separate sources.`;
+    $('source-notice').textContent = `Squeek reporting ${s.paused ? 'is paused' : 'is delayed'} · Certified through ${date(certifiedAt)}. Hamster markets need new certification to settle; missing evidence 48 hours after a window ends triggers a net refund. Crypto and network markets use separate sources.`;
   } catch {
     state.squeekHealthy = false;
     $('source-notice').hidden = false;

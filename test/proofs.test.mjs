@@ -51,7 +51,8 @@ test('native proof identifies the first boundary block using authentic headers',
 test('native proof waits for confirmation and refuses an expired BLOCKHASH window', async()=>{
   const m={startBlock:BigInt(fixture.parent.number),endsAt:BigInt(fixture.target.timestamp)};
   await assert.rejects(()=>findNativeHeaders(nativeMock(0n),m),/confirmation/);
-  await assert.rejects(()=>findNativeHeaders(nativeMock(256n),m),/elapsed/);
+  const [a]=await findNativeHeaders(nativeMock(256n),m);assert.equal(keccak256(a),fixture.parent.hash);
+  await assert.rejects(()=>findNativeHeaders(nativeMock(8000n),m),/elapsed/);
 });
 test('timeout and physical-data actions require no off-chain value reporting', async()=>{
   const m={id:12n,templateId:11,endsAt:1000n};

@@ -1,5 +1,5 @@
 import { Contract, encodeRlp, keccak256, toBeHex } from '../vendor/ethers-6.15.0.min.js';
-import { template } from './markets.js';
+import { grace, template } from './markets.js';
 
 export const FEED_ABI = [
   'function latestRoundData() view returns (uint80,int256,uint256,uint256,uint80)',
@@ -72,8 +72,8 @@ export async function findNativeHeaders(provider, market) {
     else low = mid + 1n;
   }
   if (height <= low) throw new Error('Waiting for one confirmation of the boundary block.');
-  // One block of margin: the submission itself must still see the hash.
-  if (height - low >= 256n) throw new Error('The block-header proof window has elapsed; refund is available 48h after expiry.');
+  // BLOCKHASH covers 256 blocks and the EIP-2935 history contract 8191; keep a margin for inclusion.
+  if (height - low >= 8000n) throw new Error('The block-header proof window has elapsed; refund is available 24h after expiry.');
   const [parent, target] = await Promise.all([getBlock(low - 1n), getBlock(low)]);
   if (!parent || !target || BigInt(parent.timestamp) >= end || BigInt(target.timestamp) < end) {
     throw new Error('Invalid timestamp boundary in RPC history.');
@@ -83,7 +83,7 @@ export async function findNativeHeaders(provider, market) {
 
 export async function settlementAction(contract, provider, market, now) {
   if (BigInt(now) < BigInt(market.endsAt)) throw new Error('The observation window has not ended.');
-  if (BigInt(now) >= BigInt(market.endsAt) + 172800n) return { method: 'expire', args: [market.id] };
+  if (BigInt(now) >= BigInt(market.endsAt) + grace(market)) return { method: 'expire', args: [market.id] };
   const kind = template(market).kind;
   if ([0,1,2,7,8].includes(kind)) return { method: 'settleSqueek', args: [market.id] };
   if (kind === 3 || kind === 4) {

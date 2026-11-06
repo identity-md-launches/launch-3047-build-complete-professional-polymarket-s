@@ -31,7 +31,9 @@ contract SqueekMetrics {
         core = ISqueekCore(core_);
     }
 
-    /// @dev Align to full future Core rounds. Daily markets use the next UTC day, aligned upwards.
+    /// @dev Align to full future Core rounds, leaving one full duration of betting time before the window:
+    /// stakes are taken only before any round of the window can be certified. Daily markets use the next
+    /// UTC day, aligned upwards.
     function window(uint64 now_, uint32 duration, bool daily)
         external
         view
@@ -42,9 +44,16 @@ contract SqueekMetrics {
         if (now_ < genesis || duration == 0 || duration > 7 days || duration % ROUND_SECONDS != 0) {
             revert InvalidWindow();
         }
-        uint64 candidate = daily ? (now_ / 1 days + 1) * uint64(1 days) : now_ + 1;
+        uint64 candidate = daily ? (now_ / 1 days + 1) * uint64(1 days) : now_ + duration;
         startsAt = genesis + ((candidate - genesis + ROUND_SECONDS - 1) / ROUND_SECONDS) * ROUND_SECONDS;
         endsAt = startsAt + duration;
+    }
+
+    /// @notice Round index of a round-aligned timestamp under the Core's current genesis.
+    function roundAt(uint64 timestamp) external view returns (uint64) {
+        uint64 genesis = _genesis();
+        if (timestamp < genesis || (timestamp - genesis) % ROUND_SECONDS != 0) revert InvalidWindow();
+        return (timestamp - genesis) / ROUND_SECONDS;
     }
 
     /// @notice Do not accept new stakes against a paused or abandoned physical-data feed.

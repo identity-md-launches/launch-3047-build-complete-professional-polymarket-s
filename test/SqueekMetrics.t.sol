@@ -24,14 +24,23 @@ contract SqueekMetricsTest is Test {
         new SqueekMetrics(address(0));
     }
 
-    function testWindowsUseFutureFullRoundsAndUtcDay() public view {
+    function testWindowsLeaveOneDurationOfBettingAndUseFullRoundsAndUtcDay() public {
+        // Aligned call: the window starts exactly one duration later, on a round boundary.
         (uint64 a, uint64 b) = metrics.window(GENESIS + 600, 6 hours, false);
-        assertEq(a, GENESIS + 1200);
+        assertEq(a, GENESIS + 600 + 6 hours);
         assertEq(b - a, 6 hours);
+        // Unaligned call: rounded up to the next round boundary, never earlier than now + duration.
+        (a, b) = metrics.window(GENESIS + 601, 6 hours, false);
+        assertEq(a, GENESIS + 1200 + 6 hours);
         (a, b) = metrics.window(GENESIS + 1 hours, 1 days, true);
         assertEq(a % 1 days, 0);
         assertGt(a, GENESIS + 1 hours);
         assertEq(b - a, 1 days);
+        assertEq(metrics.roundAt(GENESIS + 1200), 2);
+        vm.expectRevert(SqueekMetrics.InvalidWindow.selector);
+        metrics.roundAt(GENESIS + 1201);
+        vm.expectRevert(SqueekMetrics.InvalidWindow.selector);
+        metrics.roundAt(GENESIS - 600);
     }
 
     function testBlocksSubtractEndpointFloorsNotFloorOfDifference() public {

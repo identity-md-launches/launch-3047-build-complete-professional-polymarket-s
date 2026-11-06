@@ -19,6 +19,11 @@ contract MockCore is ISqueekCore {
         frontier = f;
     }
 
+    /// @dev Simulates a privileged re-initialisation of the upgradeable Core moving its genesis.
+    function setGenesis(uint64 g) external {
+        genesis = g;
+    }
+
     function setBroken(bool b) external {
         broken = b;
     }

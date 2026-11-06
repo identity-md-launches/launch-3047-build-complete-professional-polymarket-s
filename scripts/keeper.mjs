@@ -49,7 +49,8 @@ try {
     if (!fees.maxFeePerGas || fees.maxFeePerGas > maxFee) throw new Error('Network gas exceeds the operator ceiling; skipped.');
     const gas = await contract[method].estimateGas(...args, { from });
     const gasLimit = gas * 125n / 100n;
-    if (gasLimit > 8_000_000n) throw new Error('Transaction exceeds the keeper gas budget.');
+    // NOT_SENT tells runCycle that nothing was submitted: it retries payments in smaller batches.
+    if (gasLimit > 8_000_000n) throw Object.assign(new Error('Transaction exceeds the keeper gas budget.'), { code: 'NOT_SENT' });
     const request = await contract[method].populateTransaction(...args);
     if (await provider.getBalance(from) < gasLimit * fees.maxFeePerGas) throw new Error('Operator has insufficient Sepolia ETH for gas.');
     const tx = await signer.sendTransaction({ ...request, chainId: CHAIN_ID, gasLimit, maxFeePerGas: fees.maxFeePerGas, maxPriorityFeePerGas: fees.maxPriorityFeePerGas ?? 0n });

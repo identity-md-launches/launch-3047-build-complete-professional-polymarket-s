@@ -14,22 +14,36 @@ library BlockHeader {
         uint256 baseFee;
     }
 
+    /// @dev EIP-2935 system contract (Prague), serving the last 8191 block hashes beyond BLOCKHASH's 256.
+    address internal constant HISTORY = 0x0000F90827F1C53a10cb7A02335B175320002935;
+    uint256 internal constant HISTORY_WINDOW = 8191;
+
     function boundary(bytes calldata parentRlp, bytes calldata targetRlp, uint256 endsAt)
         internal
         view
         returns (Header memory target)
     {
         target = decode(targetRlp);
-        if (
-            target.number >= block.number || block.number - target.number > 256
-                || keccak256(targetRlp) != blockhash(target.number)
-                || target.parentHash != keccak256(parentRlp)
-        ) revert UnprovenHeader();
+        bytes32 hash = canonicalHash(target.number);
+        if (hash == bytes32(0) || keccak256(targetRlp) != hash || target.parentHash != keccak256(parentRlp)) {
+            revert UnprovenHeader();
+        }
         Header memory parent = decode(parentRlp);
         if (
             parent.number + 1 != target.number || parent.timestamp >= endsAt || target.timestamp < endsAt
                 || target.timestamp > block.timestamp
         ) revert NotBoundaryBlock();
+    }
+
+    /// @notice The chain's hash for `number`, from BLOCKHASH or the EIP-2935 ring buffer; zero if unprovable.
+    function canonicalHash(uint256 number) internal view returns (bytes32 hash) {
+        if (number >= block.number) return bytes32(0);
+        uint256 age = block.number - number;
+        if (age <= 256) return blockhash(number);
+        if (age > HISTORY_WINDOW) return bytes32(0);
+        (bool ok, bytes memory data) = HISTORY.staticcall(abi.encode(number));
+        if (!ok || data.length != 32) return bytes32(0);
+        hash = abi.decode(data, (bytes32));
     }
 
     function decode(bytes calldata rlp) internal pure returns (Header memory h) {

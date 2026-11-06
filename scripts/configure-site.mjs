@@ -16,10 +16,11 @@ try {
   const contract = new Contract(address, abi, provider);
   const events = receipt.logs.filter(l => l.address.toLowerCase() === address.toLowerCase())
     .map(l => { try { return contract.interface.parseLog(l); } catch { return null; } }).filter(l => l?.name === 'MarketScheduled');
+  // The constructor is the only code path that emits MarketScheduled for ids 1..14, so these logs in the
+  // receipt prove the deployment without historical state, which public RPCs prune after ~10,000 blocks.
   if (events.length !== 14 || events.some((e,i) => Number(e.args.marketId) !== i + 1 || Number(e.args.templateId) !== i)) throw new Error('The receipt does not contain the fourteen constructor market events at this address.');
-  const code = await provider.getCode(address, receipt.blockNumber);
-  const previous = await provider.getCode(address, receipt.blockNumber - 1);
-  if (code === '0x' || previous !== '0x') throw new Error('Address was not newly deployed in this block.');
+  const code = await provider.getCode(address);
+  if (code === '0x') throw new Error('No code is deployed at this address.');
   const artifact = JSON.parse(await readFile(new URL('../out/SqueekPredict.sol/SqueekPredict.json', import.meta.url), 'utf8'));
   verifyRuntime(artifact, code);
   const metrics = new Contract(await contract.metrics(), ['function core() view returns (address)'], provider);

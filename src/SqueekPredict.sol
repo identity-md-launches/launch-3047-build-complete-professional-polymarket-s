@@ -72,12 +72,15 @@ contract SqueekPredict {
     error InvalidBatch();
     error ReentrantCall();
     error OnlySelf();
+    error CoreReconfigured();
 
     event MarketScheduled(uint256 indexed marketId, uint8 indexed templateId);
     event MarketOpened(
         uint256 indexed marketId, uint64 startsAt, uint64 closesAt, uint64 endsAt, uint256 strike
     );
     event ActivationDeferred(uint256 indexed marketId);
+    /// @dev Betting closed; the market keeps observing while `replacementId` takes bets for the lane.
+    event MarketClosed(uint256 indexed marketId, uint256 indexed replacementId);
     event MarketAwaiting(uint256 indexed marketId, uint256 indexed replacementId);
     event BetPlaced(
         uint256 indexed marketId, address indexed bettor, uint8 side, uint256 gross, uint256 net, uint256 fee
@@ -94,6 +97,8 @@ contract SqueekPredict {
     uint256 public constant MAX_POOL = 1_000_000 ether;
     uint256 public constant MAX_PRICE_AGE = 2 hours;
     uint256 public constant RESOLUTION_GRACE = 2 days;
+    /// @dev Native header proofs come from the EIP-2935 history (8191 blocks), so the grace fits inside it.
+    uint256 public constant NATIVE_RESOLUTION_GRACE = 1 days;
     uint256 public constant AUTO_PAY_BATCH = 20;
     uint256 public constant MAX_PAY_BATCH = 40;
     uint256 public constant PUSH_GAS = 35_000;
@@ -106,7 +111,10 @@ contract SqueekPredict {
     uint256 public retainedDust;
     uint256 public totalLiability;
     uint256 private entered;
+    /// @dev The bettable (or scheduled) generation of each lane.
     uint256[14] private activeIds;
+    /// @dev The generation that has closed betting and is still observing, or 0.
+    uint256[14] private observingIds;
     mapping(uint256 => Market) private markets;
     mapping(uint256 => mapping(address => Position)) private positions;
     mapping(uint256 => address[]) private bettors;
@@ -134,16 +142,16 @@ contract SqueekPredict {
 
     function marketTemplate(uint8 slot) public pure returns (Kind kind, uint32 duration, uint256 strike) {
         if (slot == 0) return (Kind.SqueekBlocks, 6 hours, 100);
-        if (slot == 1) return (Kind.SqueekBlocks, 1 days, 400);
-        if (slot == 2) return (Kind.SqueekBlocks, 7 days, 2800);
-        if (slot == 3) return (Kind.LongestRun, 1 days, 30 minutes);
+        if (slot == 1) return (Kind.SqueekBlocks, 1 days, 950);
+        if (slot == 2) return (Kind.SqueekBlocks, 7 days, 6700);
+        if (slot == 3) return (Kind.LongestRun, 1 days, 2 hours);
         if (slot == 4) return (Kind.MorningEvening, 1 days, 0);
         if (slot == 5) return (Kind.EthPrice, 1 days, 0);
         if (slot == 6) return (Kind.EthPrice, 7 days, 0);
         if (slot == 7) return (Kind.BtcPrice, 1 days, 0);
         if (slot == 8) return (Kind.BaseFee, 1 days, 0);
         if (slot == 9) return (Kind.EthBlocks, 1 days, 7000);
-        if (slot == 10) return (Kind.SqueekWork, 1 days, 5000);
+        if (slot == 10) return (Kind.SqueekWork, 1 days, 11_000);
         if (slot == 11) return (Kind.ActiveRounds, 1 days, 24);
         if (slot == 12) return (Kind.BtcPrice, 7 days, 0);
         if (slot == 13) return (Kind.EthBlocks, 6 hours, 1750);
@@ -152,6 +160,26 @@ contract SqueekPredict {
 
     function activeMarketIds() external view returns (uint256[14] memory) {
         return activeIds;
+    }
+
+    function observingMarketIds() external view returns (uint256[14] memory) {
+        return observingIds;
+    }
+
+    /// @notice Seconds after `endsAt` during which evidence is accepted; afterwards only a refund.
+    function resolutionGrace(uint8 slot) public pure returns (uint256) {
+        (Kind kind,,) = marketTemplate(slot);
+        return kind == Kind.BaseFee || kind == Kind.EthBlocks ? NATIVE_RESOLUTION_GRACE : RESOLUTION_GRACE;
+    }
+
+    /// @notice Reverts with the reason a scheduled market cannot open right now; returns its terms otherwise.
+    function previewOpen(uint256 id)
+        external
+        view
+        returns (uint64 startsAt, uint64 closesAt, uint64 endsAt, uint256 strike)
+    {
+        _exists(id);
+        (startsAt, closesAt, endsAt, strike,) = _opening(id);
     }
 
     function getMarket(uint256 id) public view returns (Market memory) {
@@ -225,11 +253,20 @@ contract SqueekPredict {
         _maintain();
     }
 
+    /// @dev Reports work only when performUpkeep can progress: a scheduled lane counts only if it can open.
     function checkUpkeep(bytes calldata) external view returns (bool needed, bytes memory data) {
         for (uint8 i; i < SLOT_COUNT; ++i) {
-            Market storage m = markets[activeIds[i]];
-            if (m.status == Status.Scheduled || (m.status == Status.Open && block.timestamp >= m.endsAt)) {
+            Market storage o = markets[observingIds[i]];
+            if (observingIds[i] != 0 && o.status == Status.Open && block.timestamp >= o.endsAt) {
                 return (true, bytes(""));
+            }
+            uint256 id = activeIds[i];
+            Market storage m = markets[id];
+            if (m.status == Status.Open && block.timestamp >= m.closesAt) return (true, bytes(""));
+            if (m.status == Status.Scheduled) {
+                try this.previewOpen(id) returns (uint64, uint64, uint64, uint256) {
+                    return (true, bytes(""));
+                } catch {}
             }
         }
         return (false, bytes(""));
@@ -277,6 +314,8 @@ contract SqueekPredict {
         else if (kind == Kind.SqueekWork) metric = SqueekMetrics.Metric.Work;
         else if (kind == Kind.ActiveRounds) metric = SqueekMetrics.Metric.ActiveRounds;
         else revert WrongKind();
+        // A moved Core genesis would silently shift the measured rounds: fail closed to the refund path.
+        if (metrics.roundAt(m.startsAt) != m.startRound) revert CoreReconfigured();
         uint256 value = metrics.measure(metric, m.startsAt, m.endsAt);
         _finish(id, value, false);
     }
@@ -357,34 +396,52 @@ contract SqueekPredict {
         emit MarketScheduled(id, slot);
     }
 
-    function _open(uint256 id) private {
-        _exists(id);
+    /// @dev Squeek lanes take bets only before their certified window starts, so no stake can be placed
+    /// after Core has certified part of the outcome. Other lanes close halfway through their window.
+    function _opening(uint256 id)
+        private
+        view
+        returns (uint64 startsAt, uint64 closesAt, uint64 endsAt, uint256 strike, uint80 startRound)
+    {
         Market storage m = markets[id];
         if (m.status != Status.Scheduled) revert InvalidStatus();
-        (Kind kind, uint32 duration, uint256 strike) = marketTemplate(m.templateId);
-        uint64 startsAt = uint64(block.timestamp);
-        uint64 endsAt = startsAt + duration;
+        (Kind kind, uint32 duration, uint256 fixedStrike) = marketTemplate(m.templateId);
+        strike = fixedStrike;
+        startsAt = uint64(block.timestamp);
+        endsAt = startsAt + duration;
         if (_isSqueek(kind)) {
             (startsAt, endsAt) = metrics.window(startsAt, duration, kind == Kind.MorningEvening);
-        } else if (kind == Kind.EthPrice || kind == Kind.BtcPrice) {
-            IAggregatorV3 feed = kind == Kind.EthPrice ? ethFeed : btcFeed;
-            if (feed.decimals() != 8) revert InvalidPrice();
-            (uint80 r, int256 answer, uint256 started, uint256 updated, uint80 answered) =
-                feed.latestRoundData();
-            _validatePrice(r, answer, started, updated, answered);
-            if (block.timestamp - updated > MAX_PRICE_AGE) revert StalePrice();
-            strike = uint256(answer);
-            m.startRound = r;
-        } else if (kind == Kind.BaseFee) {
-            strike = block.basefee;
+            closesAt = startsAt;
+            startRound = metrics.roundAt(startsAt);
+        } else {
+            closesAt = startsAt + duration / 2;
+            if (kind == Kind.EthPrice || kind == Kind.BtcPrice) {
+                IAggregatorV3 feed = kind == Kind.EthPrice ? ethFeed : btcFeed;
+                if (feed.decimals() != 8) revert InvalidPrice();
+                (uint80 r, int256 answer, uint256 started, uint256 updated, uint80 answered) =
+                    feed.latestRoundData();
+                _validatePrice(r, answer, started, updated, answered);
+                if (block.timestamp - updated > MAX_PRICE_AGE) revert StalePrice();
+                strike = uint256(answer);
+                startRound = r;
+            } else if (kind == Kind.BaseFee) {
+                strike = block.basefee;
+            }
         }
+    }
+
+    function _open(uint256 id) private {
+        _exists(id);
+        (uint64 startsAt, uint64 closesAt, uint64 endsAt, uint256 strike, uint80 startRound) = _opening(id);
+        Market storage m = markets[id];
         m.startsAt = startsAt;
+        m.closesAt = closesAt;
         m.endsAt = endsAt;
-        m.closesAt = kind == Kind.MorningEvening ? startsAt : startsAt + duration / 2;
+        m.startRound = startRound;
         m.startBlock = uint64(block.number);
         m.strike = strike;
         m.status = Status.Open;
-        emit MarketOpened(id, startsAt, m.closesAt, endsAt, strike);
+        emit MarketOpened(id, startsAt, closesAt, endsAt, strike);
     }
 
     function _tryOpen(uint256 id) private {
@@ -394,21 +451,47 @@ contract SqueekPredict {
         }
     }
 
+    /// @dev Each lane keeps one bettable generation at all times: when betting closes, the market keeps
+    /// observing in `observingIds` and its successor opens immediately. Ended generations wait for evidence.
     function _maintain() private {
         for (uint8 i; i < SLOT_COUNT; ++i) {
+            uint256 observing = observingIds[i];
+            if (observing != 0) {
+                Market storage o = markets[observing];
+                if (o.status == Status.Open && block.timestamp >= o.endsAt) _retire(observing);
+            }
             uint256 id = activeIds[i];
             Market storage m = markets[id];
-            if (m.status == Status.Open && block.timestamp >= m.endsAt) _roll(id);
+            if (m.status == Status.Open && block.timestamp >= m.endsAt) _retire(id);
+            else if (m.status == Status.Open && block.timestamp >= m.closesAt) _close(id);
             else if (m.status == Status.Scheduled) _tryOpen(id);
         }
     }
 
-    function _roll(uint256 id) private {
+    /// @dev Successors always close no earlier than their predecessor ends, so one observing slot suffices.
+    function _close(uint256 id) private {
+        uint8 slot = markets[id].templateId;
+        if (observingIds[slot] != 0) return;
+        observingIds[slot] = id;
+        uint256 replacement = _schedule(slot);
+        emit MarketClosed(id, replacement);
+        _tryOpen(replacement);
+    }
+
+    function _retire(uint256 id) private {
         Market storage m = markets[id];
         m.status = Status.Awaiting;
-        uint256 replacement = _schedule(m.templateId);
-        emit MarketAwaiting(id, replacement);
-        _tryOpen(replacement);
+        uint8 slot = m.templateId;
+        if (observingIds[slot] == id) {
+            observingIds[slot] = 0;
+            emit MarketAwaiting(id, activeIds[slot]);
+        } else if (activeIds[slot] == id) {
+            uint256 replacement = _schedule(slot);
+            emit MarketAwaiting(id, replacement);
+            _tryOpen(replacement);
+        } else {
+            emit MarketAwaiting(id, 0);
+        }
     }
 
     function _beginResolution(uint256 id, bool timeout) private {
@@ -416,12 +499,13 @@ contract SqueekPredict {
         Market storage m = markets[id];
         if (m.status != Status.Open && m.status != Status.Awaiting) revert InvalidStatus();
         if (block.timestamp < m.endsAt) revert NotEnded();
+        uint256 deadline = m.endsAt + resolutionGrace(m.templateId);
         if (timeout) {
-            if (block.timestamp < m.endsAt + RESOLUTION_GRACE) revert TimeoutNotReached();
-        } else if (block.timestamp >= m.endsAt + RESOLUTION_GRACE) {
+            if (block.timestamp < deadline) revert TimeoutNotReached();
+        } else if (block.timestamp >= deadline) {
             revert ResolutionExpired();
         }
-        if (m.status == Status.Open) _roll(id);
+        if (m.status == Status.Open) _retire(id);
     }
 
     function _finish(uint256 id, uint256 value, bool refund) private {
@@ -462,7 +546,11 @@ contract SqueekPredict {
             (uint256 amount, uint256 stake) = _payablePosition(id, user);
             if (amount == 0) continue;
             _debit(id, user, amount, stake);
-            (bool success,) = payable(user).call{value: amount, gas: PUSH_GAS}("");
+            bool success;
+            // No return data is copied, so a recipient cannot make the settler pay for its revert payload.
+            assembly ("memory-safe") {
+                success := call(PUSH_GAS, user, amount, 0, 0, 0, 0)
+            }
             if (success) {
                 emit Paid(id, user, user, amount);
                 _dust(id);
