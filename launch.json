@@ -1,0 +1,20 @@
+{
+  "kind": "evm_contracts",
+  "contracts": [
+    {
+      "contract": "SqueekMetrics",
+      "constructorArgs": [
+        "0x74665dAecA35A2303e767E76a2FF1FB6F93e119f"
+      ]
+    },
+    {
+      "contract": "SqueekPredict",
+      "constructorArgs": [
+        "$contract:SqueekMetrics",
+        "0x694AA1769357215DE4FAC081bf1f309aDC325306",
+        "0x1b44F3514812d835EB1BDB0acB33d3fA3351Ee43"
+      ]
+    }
+  ],
+  "notes": "Sepolia application contracts in constructor dependency order. SqueekMetrics reads the specified SqueekCore; SqueekPredict uses that reader and the Sepolia Chainlink ETH/USD and BTC/USD feeds, respectively. Both constructors are nonpayable, make no dependency calls and grant no owner/admin privileges. SqueekPredict creates fourteen scheduled recurring binary market slots. Native-ETH bets fund parimutuel payouts; each bet retains 1%, and fees and rounding dust remain locked. Opening, renewal, evidence-based settlement and bounded payment batches require permissionless transactions; deployment needs no ETH funding or initialization call. An operator must run and fund the keeper separately. Fourteen current slots do not guarantee fourteen bettable markets: stale or paused Core data prevents Squeek lanes from opening or accepting bets. The accepted source documentation reports that the specified Core was stale on November 6, 2026; its recovery is an external launch dependency. Longest run measures consecutive active ten-minute Core rounds, and native block/gas markets measure Sepolia. Website configuration/publication and keeper operation follow confirmed deployment; this manifest does not attest that contracts or a website are already live."
+}
