@@ -1,8 +1,8 @@
 {
   "chainId": 11155111,
   "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
-  "contractAddress": null,
-  "deploymentBlock": null,
-  "runtimeHash": null,
-  "deploymentTransaction": null
+  "contractAddress": "0xe2470D2CC19043f7Ff49cb55423EB82a7B632280",
+  "deploymentBlock": 12077096,
+  "runtimeHash": "0x1db740089467c6b11e68033f1cc923b420b30b987837af7559c30b0ffff845f5",
+  "deploymentTransaction": "0x8714c38c38effc160d1d1c8f2affdc16644919d5a37221fa4c1c870f95b91381"
 }

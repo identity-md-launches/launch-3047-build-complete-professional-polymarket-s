@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0f17">
+  <meta name="color-scheme" content="dark">
+  <title>Squeek Predict · Prediction markets on Sepolia</title>
+  <meta name="description" content="Bet testnet ETH on crypto prices, Sepolia network activity and Squeek. Live parimutuel odds, on-chain settlement.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Squeek Predict">
+  <meta property="og:title" content="Squeek Predict · Prediction markets on Sepolia">
+  <meta property="og:description" content="Bet testnet ETH on crypto prices, Sepolia network activity and Squeek. Live parimutuel odds, on-chain settlement.">
+  <meta property="og:image" content="./og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Squeek Predict · Prediction markets on Sepolia">
+  <meta name="twitter:image" content="./og.png">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https: wss:; frame-src https:; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <script type="module" crossorigin src="./assets/index-CXYyfRqB.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BH4swf1k.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to markets</a>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#markets" aria-label="Squeek Predict, all markets"><img src="./assets/mark-D7JBu8l3.svg" width="32" height="32" alt=""><span>Squeek <strong>Predict</strong></span></a>
+      <nav class="nav" aria-label="Main"><a href="#markets" data-nav="markets" aria-current="page">Markets</a><a href="#positions" data-nav="positions">My positions</a><a href="#how" data-nav="how">How it works</a></nav>
+      <div class="wallet-area"><span class="network-pill"><span class="dot"></span>Sepolia</span><button id="connect" class="btn primary" type="button">Connect wallet</button></div>
+    </div>
+  </header>
+  <main id="main" tabindex="-1">
+    <div id="network-notice" class="notice" role="status" hidden></div>
+    <div id="launch-notice" class="notice error" role="alert" hidden></div>
+
+    <section id="markets-page" aria-labelledby="markets-title">
+      <div class="intro-row">
+        <div>
+          <h1 id="markets-title">Bet on what happens next</h1>
+          <p class="lede">Two-outcome markets on Sepolia. Odds move with every bet; contracts settle from on-chain data.</p>
+        </div>
+        <p id="read-status" class="read-status" role="status"><span class="dot neutral"></span>Connecting to Sepolia…</p>
+      </div>
+      <div class="controls">
+        <div class="chips" role="group" aria-label="Filter by category">
+          <button class="chip" type="button" data-filter="All" aria-pressed="true">All <span id="count-All" class="chip-count"></span></button>
+          <button class="chip" type="button" data-filter="Crypto" aria-pressed="false">Crypto <span id="count-Crypto" class="chip-count"></span></button>
+          <button class="chip" type="button" data-filter="Network" aria-pressed="false">Network <span id="count-Network" class="chip-count"></span></button>
+          <button class="chip" type="button" data-filter="Squeek" aria-pressed="false">Squeek <span id="count-Squeek" class="chip-count"></span></button>
+        </div>
+        <div class="search-sort">
+          <label class="search"><span class="sr-only">Search markets</span><span class="search-icon" aria-hidden="true" data-icon="search"></span><input id="search" type="search" placeholder="Search markets" autocomplete="off"></label>
+          <label class="sr-only" for="sort">Sort markets</label>
+          <select id="sort" class="select"><option value="default">Open first</option><option value="ending">Closing soon</option><option value="volume">Highest volume</option></select>
+        </div>
+      </div>
+      <div id="market-grid" class="market-grid" aria-live="off"></div>
+      <div id="source-notice" class="notice warning" role="status" hidden></div>
+      <div id="no-results" class="empty-state" hidden><h2>No matching markets</h2><p>Try another search or category.</p><button class="btn secondary" type="button" id="clear-search">Show all markets</button></div>
+      <p class="fine-print">Odds are pool shares and change until betting closes. A 1% fee is retained on every bet. <a href="#how">How payouts work</a></p>
+    </section>
+
+    <section id="positions-page" hidden aria-labelledby="positions-title">
+      <div class="page-heading"><h1 id="positions-title">My positions</h1><p class="lede">Your stakes, outcomes and payouts. Winnings are paid automatically in batches; you can also claim them here.</p></div>
+      <div id="positions-connect" class="empty-state"><h2>Connect to see your positions</h2><p>Use the wallet you bet with. Squeek Predict never asks for a private key or seed phrase.</p><button class="btn primary" type="button" id="positions-wallet">Connect wallet</button></div>
+      <div id="positions-content" hidden>
+        <div class="summary"><div><span>Net stake</span><strong id="staked-total">0 ETH</strong></div><div><span>Available to claim</span><strong id="claim-total">0 ETH</strong></div><div><span>Wallet</span><strong id="position-wallet"></strong></div></div>
+        <div id="position-list" class="position-list"></div>
+        <button id="load-positions" class="btn secondary" type="button" hidden>Load more positions</button>
+        <p class="fine-print">Totals cover the positions loaded on this page. The retained 1% fee is excluded from net stakes.</p>
+      </div>
+    </section>
+
+    <section id="how-page" hidden aria-labelledby="how-title">
+      <div class="page-heading"><h1 id="how-title">How it works</h1><p class="lede">Squeek Predict is a binary parimutuel market on Sepolia. All stakes and payouts use testnet ETH.</p></div>
+      <div class="steps">
+        <article class="panel"><span class="step-num">1</span><h2>Pick a market</h2><p>Fourteen fixed lanes cover ETH and BTC prices, Sepolia network activity and Squeek wheel data. Nobody can add their own markets.</p></article>
+        <article class="panel"><span class="step-num">2</span><h2>Back a side</h2><p>Every new pool starts at 50/50. A 1% fee is retained; the other 99% joins your side. The first bet on a scheduled market opens it and fixes its terms.</p></article>
+        <article class="panel"><span class="step-num">3</span><h2>Get paid</h2><p>When the window ends, the contract verifies the data and splits the whole net pool across winning stakes. A new market opens in the same lane.</p></article>
+      </div>
+      <div class="explain">
+        <article class="panel"><h2>How much can I win?</h2><p>Your payout is your net winning stake divided by all net winning stakes, multiplied by the full net pool.</p><p class="formula">Your stake ÷ winning side × net pool</p><p class="muted">Example: 1 ETH against 3 ETH makes a 3.96 ETH net pool. If the 1 ETH side wins with one bettor, that bettor receives 3.96 ETH.</p><h3>What if something goes wrong?</h3><p>If nobody backed the winning side, everyone gets their net stake back. If evidence is missing after the grace period (48 hours; 24 hours for Sepolia network markets), anyone can trigger the same refund.</p></article>
+        <article class="panel"><h2>Where do outcomes come from?</h2><p>Crypto markets use Chainlink’s ETH/USD and BTC/USD feeds on Sepolia. Network markets use authenticated Sepolia block headers. Squeek markets use certified ten-minute rounds from SqueekCore.</p><h3>Why is a market paused?</h3><p>Squeek markets accept bets only while SqueekCore certification is current. When it falls behind, those lanes stay scheduled until it catches up; other lanes are unaffected.</p></article>
+      </div>
+      <div class="panel upkeep"><div><h2>Keep the markets moving</h2><p>Upkeep is permissionless: it opens available markets and rolls over finished ones. Anyone can run it; it costs only gas.</p></div><button id="upkeep" class="btn secondary" type="button" disabled>Run upkeep</button></div>
+    </section>
+  </main>
+  <footer class="footer">
+    <div class="footer-inner">
+      <span>Squeek Predict on Sepolia testnet. Test ETH has no monetary value.</span>
+      <span class="footer-links"><a id="contract-link" hidden target="_blank" rel="noopener noreferrer">Contract ↗</a><a id="core-link" target="_blank" rel="noopener noreferrer">SqueekCore ↗</a><a href="#how">Market rules</a></span>
+    </div>
+  </footer>
+
+  <dialog id="bet-dialog" class="sheet" aria-labelledby="bet-title">
+    <div class="sheet-head"><h2 id="bet-title">Place a bet</h2><button class="icon-btn" type="button" data-close="bet-dialog" aria-label="Close">×</button></div>
+    <p id="bet-question" class="modal-question"></p>
+    <div id="side-picker" class="side-picker" role="group" aria-label="Choose a side"></div>
+    <form id="bet-form" novalidate>
+      <label for="bet-amount" class="field-label"><span>Amount</span><span id="wallet-balance" class="muted"></span></label>
+      <div class="amount-field"><input id="bet-amount" name="amount" inputmode="decimal" autocomplete="off" value="0.01" required aria-describedby="quote-error"><span>ETH</span></div>
+      <div class="presets"><button class="chip" type="button" data-amount="0.01">0.01</button><button class="chip" type="button" data-amount="0.05">0.05</button><button class="chip" type="button" data-amount="0.1">0.1</button><button class="chip" type="button" data-amount="0.5">0.5</button></div>
+      <dl class="quote"><div><dt>Fee (1%)</dt><dd id="quote-fee">0 ETH</dd></div><div><dt>Net stake</dt><dd id="quote-net">0 ETH</dd></div><div class="quote-return"><dt>Payout if you win</dt><dd id="quote-return">0 ETH</dd></div></dl>
+      <p id="bet-note" class="muted small"></p>
+      <p id="quote-error" class="form-error" role="alert"></p>
+      <button id="submit-bet" class="btn primary wide" type="submit">Connect wallet to bet</button>
+      <p id="bet-progress" class="small" role="status"></p>
+    </form>
+  </dialog>
+  <dialog id="rules-dialog" class="sheet" aria-labelledby="rules-title">
+    <div class="sheet-head"><h2 id="rules-title">Market rules</h2><button class="icon-btn" type="button" data-close="rules-dialog" aria-label="Close">×</button></div>
+    <p id="rules-question" class="modal-question"></p>
+    <p id="rules-body" class="rules-body"></p>
+    <dl id="rules-times" class="quote"></dl>
+  </dialog>
+  <dialog id="wallet-dialog" class="sheet" aria-labelledby="wallet-title">
+    <div class="sheet-head"><h2 id="wallet-title">Connect a wallet</h2><button class="icon-btn" type="button" data-close="wallet-dialog" aria-label="Close">×</button></div>
+    <div id="wallet-options" class="wallet-options"></div>
+    <p id="wallet-error" class="form-error" role="alert"></p>
+  </dialog>
+  <dialog id="claim-dialog" class="sheet" aria-labelledby="claim-title">
+    <div class="sheet-head"><h2 id="claim-title">Claim payout</h2><button class="icon-btn" type="button" data-close="claim-dialog" aria-label="Close">×</button></div>
+    <p class="muted">Send your unpaid winnings or refund to any Sepolia address that accepts ETH. Only the wallet that bet can claim.</p>
+    <form id="claim-form" novalidate><label for="claim-recipient" class="field-label"><span>Recipient address</span></label><input id="claim-recipient" class="text-input" type="text" autocomplete="off" spellcheck="false" required><p class="muted small">Check the full address. A confirmed payment cannot be reversed.</p><p id="claim-error" class="form-error" role="alert"></p><button class="btn primary wide" type="submit">Claim payout</button></form>
+  </dialog>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+</body>
+</html>

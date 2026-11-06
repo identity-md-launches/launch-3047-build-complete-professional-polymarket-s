@@ -8,6 +8,8 @@ const paths = {
   btc: '<path d="M9 3v18m4-18v3m0 12v3M6 6h8a3 3 0 0 1 0 6H8m-2 0h9a3 3 0 0 1 0 6H6"/>',
   gas: '<path d="M3 21h12M5 21V4h8v17M5 10h8m0 3h3v5a2 2 0 0 0 4 0V8l-3-3"/><path d="M18 6v4h2"/>',
   blocks: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  pause: '<circle cx="12" cy="12" r="9"/><path d="M10 9v6m4-6v6"/>',
   activity: '<path d="M2 12h4l3-8 6 16 3-8h4"/>',
   shield: '<path d="m12 2 8 4v6c0 5-8 10-8 10S4 17 4 12V6l8-4Z"/><path d="m8 12 3 3 5-6"/>',
   wallet: '<path d="M20 8V5a2 2 0 0 0-2-2H6a3 3 0 0 0 0 6h15v12H6a3 3 0 0 1-3-3V6"/><path d="M21 12h-6v5h6m-3-2.5h.01"/>',
