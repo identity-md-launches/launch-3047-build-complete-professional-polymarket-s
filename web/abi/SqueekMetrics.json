@@ -1,0 +1,187 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "core_",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "BLOCK_UNITS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MAX_REPORTING_DELAY",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "ROUND_SECONDS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "core",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract ISqueekCore"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "measure",
+    "inputs": [
+      {
+        "name": "metric",
+        "type": "uint8",
+        "internalType": "enum SqueekMetrics.Metric"
+      },
+      {
+        "name": "startsAt",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "endsAt",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "requireLive",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "window",
+    "inputs": [
+      {
+        "name": "now_",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "duration",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "daily",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "startsAt",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "endsAt",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "CorePaused",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CoreStale",
+    "inputs": [
+      {
+        "name": "certifiedAt",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidCore",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidPage",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidWindow",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotCertified",
+    "inputs": [
+      {
+        "name": "requiredRound",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "certifiedRound",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnsupportedConfiguration",
+    "inputs": []
+  }
+]

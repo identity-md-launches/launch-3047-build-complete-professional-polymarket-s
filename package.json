@@ -1,0 +1,12 @@
+{
+  "name": "squeek-predict",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "test": "node --test test/*.test.mjs",
+    "abi": "node scripts/export-abi.mjs",
+    "keeper:check": "node scripts/keeper.mjs --dry-run --once"
+  }
+}
